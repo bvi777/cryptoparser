@@ -15,17 +15,22 @@ import (
 	"github.com/geziyor/geziyor"
 	"github.com/geziyor/geziyor/client"
 
+	"google.golang.org/api/option"
 	sheets "google.golang.org/api/sheets/v4"
 
 	"golang.org/x/oauth2/jwt"
 )
 
 const (
-	maxNoOfCurrencies = 5
-	maxNoOfRates      = 65
-	url1              = "https://cryptorank.io/ru/"
-	url2              = "https://www.coingecko.com/"
-	spreadsheetId     = "1GCPhTKxdkJ4pM0irfJx3bMzWMl5UGHEb8_QpEX4TtK4"
+	maxNoOfCurrencies    = 5
+	maxNoOfRates         = 65
+	url1                 = "https://cryptorank.io/ru/"
+	url2                 = "https://www.coingecko.com/"
+	spreadsheetId        = "1GCPhTKxdkJ4pM0irfJx3bMzWMl5UGHEb8_QpEX4TtK4"
+	googleApiCredentials = "credentials.json"
+	googleApiUrl         = "https://www.googleapis.com/auth/spreadsheets"
+	sheet1Name           = "Лист1"
+	sheet2Name           = "Лист2"
 )
 
 type result struct {
@@ -37,12 +42,13 @@ type result struct {
 var results []result
 
 func main() {
+	srv := makeService()
 	geziyor.NewGeziyor(&geziyor.Options{
 		StartURLs: []string{url1},
 		ParseFunc: parseUrl1,
 	}).Start()
 
-	writeRes(&results, 1)
+	writeResults(&results, srv, sheet1Name, "Tag")
 
 	results = nil
 
@@ -51,7 +57,7 @@ func main() {
 		ParseFunc: parseUrl2,
 	}).Start()
 
-	writeRes(&results, 2)
+	writeResults(&results, srv, sheet2Name, "Rate")
 }
 
 func parseUrl1(g *geziyor.Geziyor, r *client.Response) {
@@ -78,8 +84,38 @@ func parseUrl2(g *geziyor.Geziyor, r *client.Response) {
 	})
 }
 
-func writeRes(res *[]result, urlNo int) {
-	jsonFile, err := os.Open("credentials.json")
+func writeResults(res *[]result, srv *sheets.Service, sheetName, columnName string) {
+	var vr sheets.ValueRange
+	var myval []interface{}
+	writeRange := sheetName + "!A1"
+
+	sheetIsEmpty, err := checkSheet(sheetName, srv)
+	if err != nil {
+		fmt.Println("Sheet %v is not accessible", sheetName)
+		os.Exit(1)
+	}
+	if sheetIsEmpty {
+		vr.Values = append(vr.Values, []interface{}{"Name", columnName, "TimeStamp"})
+	}
+
+	for _, val := range *res {
+		if columnName == "Tag" {
+			myval = []interface{}{val.name, val.tag, strconv.FormatInt(val.timestamp, 10)}
+		} else {
+			myval = []interface{}{val.name, val.rate, strconv.FormatInt(val.timestamp, 10)}
+		}
+		vr.Values = append(vr.Values, myval)
+	}
+
+	_, err = srv.Spreadsheets.Values.Append(spreadsheetId, writeRange, &vr).ValueInputOption("USER_ENTERED").Do()
+	if err != nil {
+		fmt.Println("Unable to access the sheet. %v", err)
+		os.Exit(1)
+	}
+}
+
+func makeService() *sheets.Service {
+	jsonFile, err := os.Open(googleApiCredentials)
 	if err != nil {
 		fmt.Println("Error in JSON opening: %v", err)
 		os.Exit(1)
@@ -90,6 +126,7 @@ func writeRes(res *[]result, urlNo int) {
 		Email        string `json:"client_email"`
 		PrivateKey   string `json:"private_key"`
 		PrivateKeyID string `json:"private_key_id"`
+		TokenUri     string `json:"token_uri"`
 	}
 
 	var apiData jsonData
@@ -106,42 +143,23 @@ func writeRes(res *[]result, urlNo int) {
 		Email:        apiData.Email,
 		PrivateKey:   []byte(apiData.PrivateKey),
 		PrivateKeyID: apiData.PrivateKeyID,
-		Scopes:       []string{"https://www.googleapis.com/auth/spreadsheets"},
-		TokenURL:     "https://oauth2.googleapis.com/token",
+		Scopes:       []string{googleApiUrl},
+		TokenURL:     apiData.TokenUri,
 	}
 
-	client := conf.Client(context.Background())
+	ctx := context.Background()
 
-	srv, err := sheets.New(client)
+	client := conf.Client(ctx)
+
+	srv, err := sheets.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
 		fmt.Println("Unable to retrieve Sheets client: %v", err)
 		os.Exit(1)
 	}
+	return srv
+}
 
-	var writeRange string
-	var vr sheets.ValueRange
-	var myval []interface{}
-
-	if urlNo == 1 {
-		writeRange = "Лист1!A1"
-		vr.Values = append(vr.Values, []interface{}{"Name", "Tag", "TimeStamp"})
-	} else {
-		writeRange = "Лист2!A1"
-		vr.Values = append(vr.Values, []interface{}{"Name", "Rate", "TimeStamp"})
-	}
-
-	for _, val := range *res {
-		if urlNo == 1 {
-			myval = []interface{}{val.name, val.tag, strconv.FormatInt(val.timestamp, 10)}
-		} else {
-			myval = []interface{}{val.name, val.rate, strconv.FormatInt(val.timestamp, 10)}
-		}
-		vr.Values = append(vr.Values, myval)
-	}
-
-	_, err = srv.Spreadsheets.Values.Update(spreadsheetId, writeRange, &vr).ValueInputOption("RAW").Do()
-	if err != nil {
-		fmt.Println("Unable to access the sheet. %v", err)
-		os.Exit(1)
-	}
+func checkSheet(sheetName string, srv *sheets.Service) (bool, error) {
+	resp, err := srv.Spreadsheets.Values.Get(spreadsheetId, sheetName+"!A1:A3").Do()
+	return len(resp.Values) == 0, err
 }
