@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	maxNoOfCurrencies    = 5
+	maxNoOfCurrencies    = 3
 	maxNoOfRates         = 65
 	url1                 = "https://cryptorank.io/ru/"
 	url2                 = "https://www.coingecko.com/"
@@ -107,8 +107,7 @@ func writeResults(res *[]result, srv *sheets.Service, sheetName, columnName stri
 		vr.Values = append(vr.Values, myval)
 	}
 
-	_, err = srv.Spreadsheets.Values.Append(spreadsheetId, writeRange, &vr).ValueInputOption("USER_ENTERED").Do()
-	if err != nil {
+	if _, err := srv.Spreadsheets.Values.Append(spreadsheetId, writeRange, &vr).ValueInputOption("USER_ENTERED").Do(); err != nil {
 		fmt.Printf("Unable to access the sheet. %v", err)
 		os.Exit(1)
 	}
@@ -159,6 +158,7 @@ func makeService() *sheets.Service {
 	return srv
 }
 
+// Check if sheet exists and empty
 func checkSheet(sheetName string, srv *sheets.Service) (bool, error) {
 	resp, err := srv.Spreadsheets.Values.Get(spreadsheetId, sheetName+"!A1:A3").Do()
 	return len(resp.Values) == 0, err
