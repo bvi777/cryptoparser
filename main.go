@@ -26,8 +26,8 @@ const (
 	maxNoOfRates         = 65
 	url1                 = "https://cryptorank.io/ru/"
 	url2                 = "https://www.coingecko.com/"
-	spreadsheetId        = "1GCPhTKxdkJ4pM0irfJx3bMzWMl5UGHEb8_QpEX4TtK4"
-	googleApiCredentials = "credentials.json" // Google Cloud service account credentials file
+	spreadsheetId        = "1GCPhTKxdkJ4pM0irfJx3bMzWMl5UGHEb8_QpEX4TtK4" // Change with your spreadSheetId
+	googleApiCredentials = "credentials.json"                             // Google Cloud API credentials file
 	googleApiUrl         = "https://www.googleapis.com/auth/spreadsheets"
 	sheet1Name           = "Лист1"
 	sheet2Name           = "Лист2"
@@ -91,7 +91,7 @@ func writeResults(res *[]result, srv *sheets.Service, sheetName, columnName stri
 
 	sheetIsEmpty, err := checkSheet(sheetName, srv)
 	if err != nil {
-		fmt.Println("Sheet %v is not accessible", sheetName)
+		fmt.Printf("Sheet %v is not accessible", sheetName)
 		os.Exit(1)
 	}
 	if sheetIsEmpty {
@@ -109,7 +109,7 @@ func writeResults(res *[]result, srv *sheets.Service, sheetName, columnName stri
 
 	_, err = srv.Spreadsheets.Values.Append(spreadsheetId, writeRange, &vr).ValueInputOption("USER_ENTERED").Do()
 	if err != nil {
-		fmt.Println("Unable to access the sheet. %v", err)
+		fmt.Printf("Unable to access the sheet. %v", err)
 		os.Exit(1)
 	}
 }
@@ -117,7 +117,7 @@ func writeResults(res *[]result, srv *sheets.Service, sheetName, columnName stri
 func makeService() *sheets.Service {
 	jsonFile, err := os.Open(googleApiCredentials)
 	if err != nil {
-		fmt.Println("Error in JSON opening: %v", err)
+		fmt.Printf("Error in JSON opening: %v", err)
 		os.Exit(1)
 	}
 	defer jsonFile.Close()
@@ -153,7 +153,7 @@ func makeService() *sheets.Service {
 
 	srv, err := sheets.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
-		fmt.Println("Unable to retrieve Sheets client: %v", err)
+		fmt.Printf("Unable to retrieve Sheets client: %v", err)
 		os.Exit(1)
 	}
 	return srv
