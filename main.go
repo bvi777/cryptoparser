@@ -27,7 +27,7 @@ const (
 	url1                 = "https://cryptorank.io/ru/"
 	url2                 = "https://www.coingecko.com/"
 	spreadsheetId        = "1GCPhTKxdkJ4pM0irfJx3bMzWMl5UGHEb8_QpEX4TtK4"
-	googleApiCredentials = "credentials.json"
+	googleApiCredentials = "credentials.json" // Google Cloud service account credentials file
 	googleApiUrl         = "https://www.googleapis.com/auth/spreadsheets"
 	sheet1Name           = "Лист1"
 	sheet2Name           = "Лист2"
