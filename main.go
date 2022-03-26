@@ -1,4 +1,3 @@
-//test 34567
 package main
 
 import (
